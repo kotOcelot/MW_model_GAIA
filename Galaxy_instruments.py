@@ -8,7 +8,7 @@ class Galaxy_instruments():
     
     """
     
-    fkv = 3.1556925/3.0856776/1000 #Transforms kpc/Myr to km/s
+    fkv = 3.1556925/3.0856776/1000 #Converts kpc/Myr to km/s
     
     def __init__(self, time, omega=55):
         """"Args:
