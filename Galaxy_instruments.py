@@ -1,33 +1,32 @@
 import numpy as np
-import math
-import matplotlib.pyplot as plt
 
 class Galaxy_instruments():
     """
     Basic transforms used both in Galaxy modeliing and processing.
-    
+    Args:
+    omega_bar: angular velocity of the bar rotation, km/s/kpc. Default: 55.
+    fkv: factor to convert kpc/Myr to km/s
     """
     
-    fkv = 3.1556925/3.0856776/1000 #Converts kpc/Myr to km/s
+    fkv = 3.1556925/3.0856776/1000
+    omega_bar = 55
     
-    def __init__(self, time, omega=55):
+    
+    def __init__(self, time):
         """"Args:
         time: time from the start of the integration, Myr.
-        omega: angular velocity of the bar rotation, km/s/kpc. Default: 55.
+        ---------------
         theta: angle between the major axis of the bar and the x-axis, radian.
         
         """
         
-        self.omega = omega
         self.time = time
-        self.theta = omega*time*self.fkv
+        self.theta = self.omega_bar*time*self.fkv
         
     def cart_to_pol(self, x, y):
         """Converts the Cartesian coordinates x, y to the polar coordinates 
         r and phi. 
-        
-        Args: x, y: arrays of floats.
-        Output: r, phi: arrays of floats.
+  
         phi: radians in the range [0, 2*pi]
 
         """
@@ -41,9 +40,7 @@ class Galaxy_instruments():
         """Converts the polar coordinates r, phi to the Cartesian coordinates 
         x and y. 
         
-        Args: r, phi: arrays of floats.
-        phi: radian.
-        Output: x, y: arrays of floats. 
+        phi: radians.
 
         """
     
@@ -52,14 +49,11 @@ class Galaxy_instruments():
         return x, y
     
     def cart_to_bar(self, x, y):
-        """Converts the Cartesian coordinates x, y to the Cartesian coordinates 
-        xf and yf in the bar reference system. 
+        """Converts the Cartesian coordinates x, y to the Cartesian 
+        coordinates xf and yf in the bar reference system. 
         
-        Args: x, y: arrays of floats.
-        Output: xf, yf: arrays of floats.
-
         """
-
+        
         xf = x*np.cos(self.theta) + y*np.sin(self.theta)
         yf = -x*np.sin(self.theta) + y*np.cos(self.theta)
         return xf, yf
@@ -67,9 +61,6 @@ class Galaxy_instruments():
     def bar_to_cart(self, xf, yf):
         """Converts the Cartesian coordinates xf, yf in the bar reference 
         system to the Cartesian coordinates x and y. 
-        
-        Args: xf, yf: arrays of floats.
-        Output: x, y: arrays of floats.
 
         """
 
@@ -81,9 +72,7 @@ class Galaxy_instruments():
         """Converts the Galactocentric velocities vr, vt to Cartesian 
         velocities vx, vy. 
         
-        Args: vr, vt: velocities. Arrays of floats.
-        x, y: Cartesian coordinates. Arrays of floats.
-        Output: vx, vy: arrays of floats.
+        x, y: Cartesian coordinates. 
         
         """
         r, phi = self.cart_to_pol(x, y)
@@ -92,12 +81,9 @@ class Galaxy_instruments():
         return vx, vy
 
     def vel_cart_to_gal(self, vx, vy, x, y):
-        """Converts the Cartesian velocities vr, vt to Galactocentric 
-        velocities vr, vr. 
+        """Converts the Cartesian velocities vx, vy to Galactocentric 
+        velocities vr, vt. 
         
-        Args: vx, vx: velocities. Arrays of floats.
-        x, y: Cartesian coordinates. Arrays of floats.
-        Output: vr, vt: arrays of floats.
         
         """
         r, phi = self.cart_to_pol(x, y)
@@ -105,8 +91,3 @@ class Galaxy_instruments():
         vt = -vx*np.sin(phi) + vy*np.cos(phi)
         return vr, vt
     
-    
-    
-    
-        
-        
