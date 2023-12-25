@@ -1,8 +1,7 @@
 import numpy as np
 import math
-import matplotlib.pyplot as plt
-from Galaxy_instruments import Galaxy_instruments
 from scipy import special as sp
+from Galaxy_instruments import Galaxy_instruments
 
 class Galaxy_model(Galaxy_instruments):
     """
