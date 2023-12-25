@@ -493,15 +493,4 @@ class Galaxy_model(Galaxy_instruments):
         r_41 = self.rs[ind-1] + (self.rs[ind] - self.rs[ind-1])/ \
              (omega[ind] + kappa[ind]/4 - omega[ind-1] - kappa[ind-1]/4)* \
              (self.omega_bar - omega[ind-1] - kappa[ind-1]/4)
-        return r_41   
-    
-                           
-
-                
-            
-                                
-            
-            
-            
-            
-            
+        return r_41
