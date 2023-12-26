@@ -1,11 +1,11 @@
 import numpy as np
 import math
-from scipy import special as sp
 from Galaxy_instruments import Galaxy_instruments
+from scipy import special as sp
 
 class Galaxy_model(Galaxy_instruments):
     """
-    Components of the Galaxy potential.
+    Components of the Galaxy potential and some resonances.
     Parameters:
     fkv: factor to convert kpc/Myr to km/s.
     G: Gravitational constant in kpc**3*10^-11 Msun*Myr^-2.
@@ -386,7 +386,7 @@ class Galaxy_model(Galaxy_instruments):
         
         """    
         
-        vc_tot = np.zeros(300)
+        vc_tot = np.empty(300)
         for i in range(1, 301):
             r = i*self.dr
             x = r
@@ -416,9 +416,9 @@ class Galaxy_model(Galaxy_instruments):
         
         """
         
-        kappa = np.zeros(300)
-        omega = self.find_omega()
+        kappa = np.empty(300)
         vc_tot = self.total_curve()
+        omega = vc_tot/self.rs
         
         der_1 = (2*(omega[1] - omega[0]) - 1/2*(omega[2] - \
                                                  omega[0]))/self.rs[0]
@@ -493,4 +493,15 @@ class Galaxy_model(Galaxy_instruments):
         r_41 = self.rs[ind-1] + (self.rs[ind] - self.rs[ind-1])/ \
              (omega[ind] + kappa[ind]/4 - omega[ind-1] - kappa[ind-1]/4)* \
              (self.omega_bar - omega[ind-1] - kappa[ind-1]/4)
-        return r_41
+        return r_41   
+    
+                           
+
+                
+            
+                                
+            
+            
+            
+            
+            
