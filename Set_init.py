@@ -1,58 +1,50 @@
 import numpy as np
 import math
-from Galaxy_instruments import Galaxy_instruments
+import random as rd
 from Galaxy_model import Galaxy_model
+from Set_model_parameters import Set_model_parameters as sp
+from Galaxy_instruments import Galaxy_instruments
 
 class Set_init(Galaxy_model):
-    """
-    Sets initial distributions of coordinates and velocities. 
+    """ Sets initial distributions of coordinates and velocities. 
     Governs assymetric drift by solving Jeans equation 
     (Binney & Tremaine 2008, eq 4.222a).
-    Parameters:
-    fkv: factor to convert kpc/Myr to km/s.
-    G: Gravitational constant in kpc**3*10^-11 Msun*Myr^-2.
-    r_min: Galactocentric distance of the last stable orbit. The particle
-    falls on central black hole and integration stopped if r < r_min. Kpc.
-    r_max: Galactocentric distance of the last stable orbit. The particle
-    leaves the Galaxy and integration stopped if r > r_max. Kpc.
-    omega_bar: angular velocity of the bar rotation, km/s/kpc. Default: 55.
-    rs: array of galactocentric coordinates used in modelling, kpc.
-    dr: step of modelling, kpc.
-    s_R: radial scale of the velocity dispersion, kpc.
+
     """
     
-    fkv = 3.1556925/3.0856776/1000
-    G = 6.67408*1.98892/(3.0856776**2)*(3.1556925**2)/3.0856776*0.1 
-    r_min = 0.02 #kpc
-    r_max = 11 #kpc
-    omega_bar = 55 #km*s^-1*kpc^-1
-    rs = np.arange(12/300, 12  +  12/300, 12/300) #kpc
+    fkv = sp.fkv
+    G = sp.G
+    r_min = sp.r_min
+    r_max = sp.r_max
+    omega_bar = sp.omega_bar
+    rs = sp.rs
     dr = r_max/300
-    s_R = 20
-
+    s_R = sp.s_R
+    N = sp.N
+    
     def find_Q_r(self):
         """ Finds parameters of disc stability against axisymmetric 
         perturbations according to Toomre criretion.
-        Output: Q: array of of 300 Toomre parameters along the Galactocentric 
+        ---------------
+        Output:
+        Q: array of of 300 Toomre parameters along the Galactocentric 
         distance in the range 0.04 - 12 kpc.
         r_rep: Galactocentric distance of the minimum Toomre parameter, kpc.
         
         """
+        kappa = Galaxy_model.find_kappa(self)*self.fkv
         
-        kappa = self.find_kappa()*self.fkv
-        
-        Sigm_0 = self.M_disc/(2*math.pi*self.r_disc**2*(1 - \
-               math.exp(-self.r_max/self.r_disc)* \
-                   (1 + (self.r_max/self.r_disc))))
-        Sigm = Sigm_0*np.exp(-self.rs/self.r_disc)        
+        Sigm_0 = sp.M_disc/(2*math.pi*sp.r_disc**2*(1 - \
+               math.exp(-self.r_max/sp.r_disc)* \
+                   (1 + (self.r_max/sp.r_disc))))
+        Sigm = Sigm_0*np.exp(-self.rs/sp.r_disc)        
         Q_test = kappa/3.36/self.G/Sigm
         ind = np.where(Q_test == np.min(Q_test))[0][0]
         r_rep = self.rs[ind]
         
-        s_R = 3.36*self.G*Sigm[ind]/(kappa[ind])
-        C_R = -s_R/np.exp(-r_rep/self.s_R)
+        sm_R = 3.36*self.G*Sigm[ind]/kappa[ind]
+        C_R = sm_R/np.exp(-r_rep/self.s_R)
         sigm_R = C_R*np.exp(-self.rs/self.s_R)
-        
         
         Q = sigm_R*kappa/3.36/self.G/Sigm
         return Q, r_rep
@@ -62,25 +54,28 @@ class Set_init(Galaxy_model):
         """ Returns arrays of 300 mean velocities and velocity dispersions 
         in km s^-1 along the Galactocentric distance in the range 
         0.04 - 12 kpc.     
-        (Binney & Tremaine 2008, eq 4.222a).
-        Output: vt: mean azimuthal velocity.
+        ---------------
+        Output: 
+        vt: mean azimuthal velocity.
         svr: radial velocity dispersion.
-        svt: aximuthal velocity dispersion.
+        svt: azimuthal velocity dispersion.
         """
         _, r_rep = self.find_Q_r()
-        rs = self.rs
-        kappa = self.find_kappa()*self.fkv
-        vc_tot = self.total_curve()
+        
+        kappa = Galaxy_model.find_kappa(self)*self.fkv
+        vc_tot = Galaxy_model.total_curve(self)
+        
         omega = vc_tot/self.rs*self.fkv
+        
         Qt = 1
-        Sigm_0 = self.M_disc/(2*math.pi*self.r_disc**2*(1 - \
-               math.exp(-self.r_max/self.r_disc)* \
-                   (1 + (self.r_max/self.r_disc))))
+        Sigm_0 = sp.M_disc/(2*math.pi*sp.r_disc**2*(1 - \
+                math.exp(-self.r_max/sp.r_disc)* \
+                    (1 + (self.r_max/sp.r_disc))))
             
-        for k in range(1, 301):
-            if (r_rep > rs[k-1]) and (r_rep <= rs[k]):
-                ind = k
-        sig_vr_0 = Qt*3.36*Sigm_0*np.exp(-r_rep/self.r_disc)*self.G/kappa[ind]
+        d = abs(self.rs - r_rep)
+        ind = np.where(d == np.min(d))[0][0]
+        
+        sig_vr_0 = Qt*3.36*Sigm_0*np.exp(-r_rep/sp.r_disc)*self.G/kappa[ind]
         sr_0 = sig_vr_0*np.exp(r_rep/self.s_R)
         gamma = np.empty(300)
         sig_vr_2 = np.empty(300)
@@ -90,15 +85,76 @@ class Set_init(Galaxy_model):
         vt = np.empty(300)
         vt_2 = np.empty(300)
         for i in range(0, 300):
-            r = rs[i]
+            r = self.rs[i]
             gamma[i] = (kappa[i]/omega[i])**2/4
             sig_vr_2[i] = (sr_0*np.exp(-r/self.s_R))**2
             sig_vt_2[i] = sig_vr_2[i]*gamma[i]
             vt_2[i] = vc_tot[i]**2 + sig_vr_2[i]/self.fkv**2* \
-                          (1 - gamma[i] - r/self.r_disc - 2*r/self.s_R)
+                          (1 - gamma[i] - r/sp.r_disc - 2*r/self.s_R)
             svr[i] = np.sqrt(sig_vr_2[i])/self.fkv
             svt[i] = np.sqrt(sig_vt_2[i])/self.fkv
             vt[i] = np.sqrt(abs(vt_2[i]))
         return vt, svr, svt
+    
+    def set_initial(self):
+        """ Returns a dictionary of initial parameters of N particles.
+        j: index of the model particle.
+        sts: status of the particle. 0 if the particle leaved the Galaxy 
+        or fell on the central black hole.
+        x, y: initial Cartesian coordinates in kpc.
+        vx, vy: initial Cartesian velocities in km s^-1 calculated according
+        to Binney & Tremaine 2008, eq 4.222a.
+        
+        """
+        
+        vt, svr, svt = self.find_sigmas_vels()
+        
+        init = {}
+        
+        init['j'] = np.arange(1, self.N + 1)
+        init['sts'] = np.ones(self.N)
+        init['x'] = np.empty(self.N)
+        init['y'] = np.empty(self.N)
+        init['vx'] = np.empty(self.N)
+        init['vy'] = np.empty(self.N)
+        
+        r_init = np.empty(self.N)
+        
+        for j in range(self.N):
+            r = 255
+            while r >= self.r_max or r <= self.r_min:  
+                s_1 = rd.uniform(0, 1)
+                s_2 = rd.uniform(0, 1)
+                r = -(math.log(s_1) + math.log(s_2))*self.r_disc
+            r_init[j] = r
+        r_init = np.sort(r_init)
+        
+        for j in range(self.N):
+            r = r_init[j]
+            s = rd.uniform(0, 1)
+            th = math.pi*s
+            x = r*math.cos(th)
+            y = r*math.sin(th)
+            
+            init['x'][j] = x
+            init['y'][j] = y
+
+            d = abs(self.rs - r)
+            ind = np.where(d == np.min(d))[0][0]
+            
+            vt_0 = vt[ind-1] + (vt[ind] - vt[ind-1])/(self.rs[ind] - \
+                                self.rs[ind-1])*(r - self.rs[ind-1])
+            sig_vr_1 = svr[ind-1] + (svr[ind] - svr[ind-1])/(self.rs[ind] - \
+                                    self.rs[ind-1])*(r - self.rs[ind-1])
+            sig_vt_1 = svt[ind-1] + (svt[ind] - svt[ind-1])/(self.rs[ind] - \
+                                    self.rs[ind-1])*(r - self.rs[ind-1])
+            vt_s = vt_0 + sig_vt_1*rd.gauss(0, 1)
+            vr_s = sig_vr_1 * rd.gauss(0, 1)
+            vx, vy = Galaxy_instruments.vel_gal_to_cart(self, vr_s, vt_s, x, y)
+            init['vx'][j] = vx
+            init['vy'][j] = vy
+        return init
+
+
 
     

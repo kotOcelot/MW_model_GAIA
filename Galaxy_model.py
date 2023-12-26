@@ -1,79 +1,64 @@
 import numpy as np
 import math
 from Galaxy_instruments import Galaxy_instruments
-from scipy import special as sp
+from Set_model_parameters import Set_model_parameters as sp
+from scipy import special as spf
+import matplotlib.pyplot as plt
 
 class Galaxy_model(Galaxy_instruments):
-    """
-    Components of the Galaxy potential and some resonances.
-    Parameters:
-    fkv: factor to convert kpc/Myr to km/s.
-    G: Gravitational constant in kpc**3*10^-11 Msun*Myr^-2.
-    r_min: Galactocentric distance of the last stable orbit. The particle
-    falls on central black hole and integration stopped if r < r_min. Kpc.
-    r_max: Galactocentric distance of the last stable orbit. The particle
-    leaves the Galaxy and integration stopped if r > r_max. Kpc.
-    omega_bar: angular velocity of the bar rotation, km/s/kpc. Default: 55.
-    rs: array of galactocentric coordinates used in modelling, kpc.
-    dr: step of modelling, kpc.
+    """ Components of the Galaxy potential, rotation curve and resonances.
     
     """
     
-    fkv = 3.1556925/3.0856776/1000
-    G = 6.67408*1.98892/(3.0856776**2)*(3.1556925**2)/3.0856776*0.1 
-    r_min = 0.02 #kpc
-    r_max = 11 #kpc
-    omega_bar = 55 #km*s^-1*kpc^-1
-    rs = np.arange(12/300, 12  +  12/300, 12/300) #kpc
-    dr = r_max/300
-    
-    def __init__(self, time=1500, M_bar=0.13, a_bar=4.2, b_bar=1.35,
-                 M_buldge=0.05, r_buldge=0.3, M_disc=0.325, r_disc=2.5,
-                 v_max=201.4, r_halo=8):
-        """"Args:
-        time: time from the start of the integration, Myr. Default: 1500.
-        M_bar: mass of the bar, M_sun. Default: 0.13.
-        a_bar, b_bar: major and minor semi-axes of the bar, kpc. 
-        Default: 4.2 and 1.35, respectively.
-        M_buldge: mass of the buldge, M_sun. Default: 0.05.
-        r_buldge: radius of the buldge, kpc. Default: 0.3.
-        M_disc: mass of the disc, M_sun. Default: 0.325.
-        r_disc: exponential scale of the disc, kpc. Default: 2.5.
-        v_max: maximum velocity of the halo, km/s. Default: 201.4.
-        r_halo: radius of the halo, kpc. Default: 8.
-        ---------------
-        theta: angle between the major axis of the bar and the x-axis, radian.
-        """
-
-        self.time = time
-        self.M_bar = M_bar
-        self.a_bar = a_bar
-        self.b_bar = b_bar
-        self.M_buldge = M_buldge
-        self.r_buldge = r_buldge
-        self.M_disc = M_disc
-        self.r_disc = r_disc
-        self.v_max = v_max*self.fkv
-        self.r_halo = r_halo
+    def __init__(self):
+        """ Initializing default parameters.
         
-        self.theta = self.omega_bar*time*self.fkv
-        self.vc_disc, self.acc_disc = self.disc_curve()
+        """
+        self.fkv = sp.fkv
+        self.G = sp.G 
+        
+        self.r_min = sp.r_min
+        self.r_max = sp.r_max
+        self.rs = sp.rs
+        self.dr = self.r_max/300
+
+        self.omega_bar = sp.omega_bar
+        
+        self.time = sp.time
+        
+        self.M_bar = sp.M_bar
+        self.a_bar = sp.a_bar
+        self.b_bar = sp.b_bar
+        
+        self.M_buldge = sp.M_buldge
+        self.r_buldge = sp.r_buldge
+        
+        self.M_disc = sp.M_disc
+        self.r_disc = sp.r_disc
+        
+        self.v_max = sp.v_max
+        self.r_halo = sp.r_halo
+        
+        self.N_rot = sp.N_rot
+        
         self.vc_bar, self.acc_bar = self.bar_curve()
+        self.vc_disc, self.acc_disc = self.disc_curve()
         
     def accel_bar(self, x, y, return_potential=False):
         """ Returns the acceleration produced by the Ferrer's bar, n = 2 
         (Binney & Tremaine 2008, p.95) in given point.
-        Args: x, y: Cartesian coordinates.
-        N_rot: number of the rotations during which bar is gradually 
-        turning on. Defaukt: 4.
+        Args: 
+        x, y: Cartesian coordinates.
         return_potential: if True, returns value of the bar gravitational 
         potential in given point.
-        Output: ax, ay: Cartesian components of acceleration by bar in 
-        given point, floats.
+        ---------------
+        Output:
+        ax, ay: Cartesian components of acceleration by bar in given point.
         
         """
         
         r = math.sqrt(x**2 + y**2)
+        
         if r > (self.r_max + 0.002):
             print('Error! Particle leaves the Galaxy!')
             return
@@ -160,8 +145,10 @@ class Galaxy_model(Galaxy_instruments):
         
         n_int = 1000
         d_fi = 2*math.pi/n_int
+        
         vc_bar = np.zeros(300)
         acc_bar = np.zeros(300)
+        
         for i in range(1, 301):
             r = i*self.dr
             a_sum = 0
@@ -171,27 +158,26 @@ class Galaxy_model(Galaxy_instruments):
                 y = r*math.sin(fi)
                 ax, ay = self.accel_bar(x, y)
                 a_sum += ax*math.cos(fi) + ay*math.sin(fi)
+                
             vc_bar[i-1] = math.sqrt(r*abs(a_sum)*d_fi/2/math.pi)/self.fkv
             acc_bar[i-1] = a_sum*d_fi/2/math.pi
         return vc_bar, acc_bar
     
-    def bar_turn_on(self, x, y, N_rot=4, return_potential=False):
+    def bar_turn_on(self, x, y, return_potential=False):
         """ Returns the acceleration produced by the bar gradually turning on 
         during N_rot rotatoins in given point.
-        Args: x, y: Cartesian coordinates.
-        N_rot: number of the rotations during which bar is gradually 
-        turning on. Default: 4.
+        Args:
+        x, y: Cartesian coordinates.
         return_potential: if True, returns value of the bar gravitational 
         potential in given point.
-        Output: ax, ay: Cartesian components of acceleration by bar in 
-        given point, floats.
+        ---------------
+        Output:
+        ax, ay: Cartesian components of acceleration by bar in given point.
         
         """
-        vc_bar = self.vc_bar
-        rs = self.rs
         
         tbrot = 2*math.pi/self.omega_bar/self.fkv
-        tgrow = N_rot*tbrot
+        tgrow = self.N_rot*tbrot
          
         if self.time < tgrow:
             bar_str = self.time/tgrow
@@ -203,26 +189,28 @@ class Galaxy_model(Galaxy_instruments):
         r = np.sqrt(x**2 + y**2)
         
         if bar_str < 1:
-            for i in range(1, 301):
-                if((r < rs[i]) and (r >= rs[i-1])):
-                    ind = i
-            vcb = vc_bar[ind-1] + (vc_bar[ind] - vc_bar[ind-1]) * \
-                  (r - rs[ind-1])/(rs[ind] - rs[ind-1])
+            d = abs(self.rs - r)
+            ind = np.where(d == np.min(d))[0][0]
+            vcb = self.vc_bar[ind-1] + (self.vc_bar[ind] - self.vc_bar[ind-1]) * \
+                  (r - self.rs[ind-1])/(self.rs[ind] - self.rs[ind-1])
             ax = bar_str*ax - (1 - bar_str)*vcb**2*x/r**2*self.fkv**2
             ay = bar_str*ay - (1 - bar_str)*vcb**2*y/r**2*self.fkv**2
         return ax, ay
     
     def accel_buldge(self, x, y, return_potential=False):
         """ Returns the acceleration produced by the buldge in given point.
-        Args: x, y: Cartesian coordinates.
+        Args:
+        x, y: Cartesian coordinates.
         return_potential: if True, returns value of the bar gravitational 
         potential in given point.
-        Output: ax, ay: Cartesian components of acceleration by buldge in 
-        given point, floats.
+        ---------------
+        Output:
+        ax, ay: Cartesian components of acceleration by buldge in given point.
         
         """
   
         r = math.sqrt(x**2 + y**2)
+        
         if r > (self.r_max + 0.002):
             print('Error! Particle leaves the Galaxy!')
             return
@@ -235,7 +223,8 @@ class Galaxy_model(Galaxy_instruments):
                    math.sqrt(r**2 + self.r_buldge**2))
                    
         ax = a_buldge*x/r
-        ay = a_buldge*y/r                       
+        ay = a_buldge*y/r      
+                 
         if return_potential:
             return ax, ay, pot_buldge
         else:
@@ -249,6 +238,7 @@ class Galaxy_model(Galaxy_instruments):
         """
         
         vc_buldge = np.empty(300)
+        
         for i in range(1, 301):
             r = i*self.dr
             a_sum = 0
@@ -261,15 +251,16 @@ class Galaxy_model(Galaxy_instruments):
                       
     def accel_disc(self, x, y, return_potential=False):
         """ Returns the acceleration produced by the disc in given point.
-        Args: x, y: Cartesian coordinates.
-        Output: ax, ay: Cartesian components of acceleration by disc in 
-        given point, floats.
+        Args:
+        x, y: Cartesian coordinates.
+        ---------------
+        Output:
+        ax, ay: Cartesian components of acceleration by disc in given point.
         
         """
         
-        acc_disc = self.acc_disc
-        rs = self.rs
         r = math.sqrt(x**2 + y**2)
+        
         if r > (self.r_max + 0.002):
             print('Error! Particle leaves the Galaxy!')
             return
@@ -277,17 +268,16 @@ class Galaxy_model(Galaxy_instruments):
             print('Error! Particle falls on center!')
             return
 
-        for i in range(1, 299):
-            if r < rs[i] and r >= rs[i-1]:
-                ind = i
+        d = abs(self.rs - r)
+        ind = np.where(d == np.min(d))[0][0]
                 
-        if r < rs[0] and r >= self.r_min:
+        if r < self.rs[0] and r >= self.r_min:
             ind = 0
                 
-        acc_disc_loc = acc_disc[ind] + \
-                     (acc_disc[ind+1] - acc_disc[ind]) * \
-                     (r - rs[ind])/(rs[ind+1] - \
-                                           rs[ind])
+        acc_disc_loc = self.acc_disc[ind] + \
+                     (self.acc_disc[ind+1] - self.acc_disc[ind]) * \
+                     (r - self.rs[ind])/(self.rs[ind+1] - \
+                                           self.rs[ind])
         ax = acc_disc_loc*x/r
         ay = acc_disc_loc*y/r
         return ax, ay
@@ -301,6 +291,7 @@ class Galaxy_model(Galaxy_instruments):
         
         vc_disc = np.empty(300)
         acc_disc = np.empty(300)
+        
         for i in range(1, 301):
             r = i*self.dr
             y_d = r/2/self.r_disc
@@ -308,23 +299,26 @@ class Galaxy_model(Galaxy_instruments):
                    math.exp(-self.r_max/self.r_disc)* \
                        (1 + (self.r_max/self.r_disc))))
             acc_disc[i-1] = -(4*math.pi*self.G*sigm*self.r_disc*y_d*y_d* \
-                            (sp.iv(0, y_d)*sp.kv(0, y_d) - \
-                             sp.iv(1, y_d)*sp.kv(1, y_d)))/r
+                            (spf.iv(0, y_d)*spf.kv(0, y_d) - \
+                             spf.iv(1, y_d)*spf.kv(1, y_d)))/r
             vc_disc[i-1] = math.sqrt(abs(r*acc_disc[i-1]))/self.fkv
         return vc_disc, acc_disc
     
 
     def accel_halo(self, x, y, return_potential=False):
         """ Returns the acceleration produced by the halo in given point.
-        Args: x, y: Cartesian coordinates.
+        Args:
+        x, y: Cartesian coordinates.
         return_potential: if True, returns value of the bar gravitational 
         potential in given point.
-        Output: ax, ay: Cartesian components of acceleration by disc in 
-        given point, floats.
+        ---------------
+        Output:
+        ax, ay: Cartesian components of acceleration by disc in given point.
         
         """
   
         r = math.sqrt(x**2 + y**2)
+        
         if r > (self.r_max + 0.002):
             print('Error! Particle leaves the Galaxy!')
             return
@@ -352,6 +346,7 @@ class Galaxy_model(Galaxy_instruments):
         """  
         
         vc_halo = np.zeros(300)
+        
         for i in range(1, 301):
             r = i*self.dr
             x = r
@@ -364,17 +359,21 @@ class Galaxy_model(Galaxy_instruments):
     def accel_total(self, x, y, time):
         """ Returns the acceleration produced by the total Galaxy potential
         in given point.
-        Args: x, y: Cartesian coordinates.
+        Args:
+        x, y: Cartesian coordinates.
         time: time from the start of the integration, Myr.
-        Output: ax, ay: Cartesian components of acceleration by disc in 
-        given point, floats.
+        ---------------
+        Output:
+        ax, ay: Cartesian components of acceleration by disc in given point.
         
         """
         self.time = time
+        
         ax_bar, ay_bar = self.bar_turn_on(x, y)
         ax_buldge, ay_buldge = self.accel_buldge(x, y)
         ax_disc, ay_disc = self.accel_disc(x, y)
         ax_halo, ay_halo = self.accel_halo(x, y)
+        
         ax = ax_bar + ax_buldge + ax_disc + ax_halo
         ay = ay_bar + ay_buldge + ay_disc + ay_halo
         return ax, ay
@@ -387,6 +386,7 @@ class Galaxy_model(Galaxy_instruments):
         """    
         
         vc_tot = np.empty(300)
+        
         for i in range(1, 301):
             r = i*self.dr
             x = r
@@ -437,7 +437,8 @@ class Galaxy_model(Galaxy_instruments):
             ym2 = vc_tot[i-2]/(self.rs[i] - 2*self.dr)
             der_1 = ((yp1 - y0) - (ym1 - y0) - 1/4*(yp2 - y0) + \
                      1/4*(ym2 - y0))/self.dr
-            kappa[i] = 2*omega[i]*math.sqrt(abs(1 + self.rs[i]/2/omega[i]*der_1))
+            kappa[i] = 2*omega[i]* \
+                       math.sqrt(abs(1 + self.rs[i]/2/omega[i]*der_1))
             
         s = self.rs[297]/2/omega[297]*der_1
         kappa[298:] = 2*omega[298:]*math.sqrt(1 + s)
@@ -450,29 +451,25 @@ class Galaxy_model(Galaxy_instruments):
         """
         
         omega = self.find_omega()
-        r_cr = 0
-        for k in range(1, 300):
-            if (self.omega_bar > omega[k]) and (self.omega_bar <= omega[k-1]):
-                ind = k
+        
+        d = abs(self.omega_bar - omega)
+        ind = np.where(d == np.min(d))[0][0]
+        
         r_cr = self.rs[ind-1] + (self.rs[ind] - self.rs[ind-1])/ \
              (omega[ind] - omega[ind-1])*(self.omega_bar - omega[ind-1])
         return r_cr
      
     def find_OLR(self):
-        """ Returns Galactocentric distance of the OLR
-        (-2:1 resonance) in kpc.
-        
+        """ Returns Galactocentric distance of the OLR (-2:1 resonance) in kpc.
         
         """
         
         omega = self.find_omega()
         kappa = self.find_kappa()
-        r_olr = 0
         
-        for k in range(1, 300):
-            if (self.omega_bar > (omega[k] + kappa[k]/2)) and \
-                (self.omega_bar <= (omega[k-1] + kappa[k-1]/2)):
-                    ind = k
+        d = abs(self.omega_bar - omega - kappa/2)
+        ind = np.where(d == np.min(d))[0][0]
+
         r_olr = self.rs[ind-1] + (self.rs[ind] - self.rs[ind-1])/ \
              (omega[ind] + kappa[ind]/2 - omega[ind-1] - kappa[ind-1]/2) * \
              (self.omega_bar - omega[ind-1] - kappa[ind-1]/2)
@@ -485,11 +482,10 @@ class Galaxy_model(Galaxy_instruments):
         
         omega = self.find_omega()
         kappa = self.find_kappa()        
-        r_41 = 0
-        for k in range (1, 300):
-            if (self.omega_bar > omega[k] + kappa[k]/4) and \
-               (self.omega_bar <= omega[k-1] + kappa[k-1]/4):
-                   ind = k
+
+        d = abs(self.omega_bar - omega - kappa/4)
+        ind = np.where(d == np.min(d))[0][0]
+
         r_41 = self.rs[ind-1] + (self.rs[ind] - self.rs[ind-1])/ \
              (omega[ind] + kappa[ind]/4 - omega[ind-1] - kappa[ind-1]/4)* \
              (self.omega_bar - omega[ind-1] - kappa[ind-1]/4)

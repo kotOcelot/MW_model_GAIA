@@ -1,32 +1,19 @@
 import numpy as np
+from Set_model_parameters import Set_model_parameters as sp
 
 class Galaxy_instruments():
     """
     Basic transforms used both in Galaxy modeliing and processing.
-    Args:
-    omega_bar: angular velocity of the bar rotation, km/s/kpc. Default: 55.
-    fkv: factor to convert kpc/Myr to km/s
+
     """
     
-    fkv = 3.1556925/3.0856776/1000
-    omega_bar = 55
-    
-    
-    def __init__(self, time):
-        """"Args:
-        time: time from the start of the integration, Myr.
-        ---------------
-        theta: angle between the major axis of the bar and the x-axis, radian.
-        
-        """
-        
-        self.time = time
-        self.theta = self.omega_bar*time*self.fkv
+    fkv = sp.fkv
+    omega_bar = sp.omega_bar 
         
     def cart_to_pol(self, x, y):
         """Converts the Cartesian coordinates x, y to the polar coordinates 
         r and phi. 
-  
+        ---------------
         phi: radians in the range [0, 2*pi]
 
         """
@@ -39,7 +26,7 @@ class Galaxy_instruments():
     def pol_to_cart(self, r, phi):
         """Converts the polar coordinates r, phi to the Cartesian coordinates 
         x and y. 
-        
+        ---------------        
         phi: radians.
 
         """
@@ -54,8 +41,10 @@ class Galaxy_instruments():
         
         """
         
-        xf = x*np.cos(self.theta) + y*np.sin(self.theta)
-        yf = -x*np.sin(self.theta) + y*np.cos(self.theta)
+        theta = self.time*self.omega_bar*self.fkv
+        
+        xf = x*np.cos(theta) + y*np.sin(theta)
+        yf = -x*np.sin(theta) + y*np.cos(theta)
         return xf, yf
     
     def bar_to_cart(self, xf, yf):
@@ -63,15 +52,17 @@ class Galaxy_instruments():
         system to the Cartesian coordinates x and y. 
 
         """
+        
+        theta = self.time*self.omega_bar*self.fkv
 
-        x = xf*np.cos(self.theta) - yf*np.sin(self.theta)
-        y = xf*np.sin(self.theta) + yf*np.cos(self.theta)
+        x = xf*np.cos(theta) - yf*np.sin(theta)
+        y = xf*np.sin(theta) + yf*np.cos(theta)
         return x, y
     
     def vel_gal_to_cart(self, vr, vt, x, y):
         """Converts the Galactocentric velocities vr, vt to Cartesian 
         velocities vx, vy. 
-        
+        ---------------        
         x, y: Cartesian coordinates. 
         
         """
